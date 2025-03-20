@@ -722,6 +722,7 @@ class TokenizerManager:
 
         # This means that weight sync
         # cannot run while requests are in progress.
+        print("tokenizer manager update begin")
         async with self.model_update_lock.writer_lock:
             result = (await self.update_weights_from_tensor_communicator(obj))[0]
             return result.success, result.message
