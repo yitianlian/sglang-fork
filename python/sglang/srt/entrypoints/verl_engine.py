@@ -12,12 +12,14 @@
 # limitations under the License.
 # ==============================================================================
 import os
+import threading
 from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
 from torch.distributed.tensor import DeviceMesh, DTensor
 
+from sglang.srt.entrypoints.http_server import launch_server_from_verl_engine
 from sglang.srt.model_executor.model_runner import LocalSerializedTensor
 from sglang.srt.server import Engine
 from sglang.srt.utils import MultiprocessingSerializer, broadcast_pyobj
@@ -44,6 +46,41 @@ class VerlEngine:
             )
         else:
             self._engine = None
+
+        self._engine_lock = threading.RLock()
+        if self._tp_rank == 0:
+            import copy
+
+            new_server_args = copy.deepcopy(self._engine.server_args)
+            new_server_args.port = 30000 + self._tp_rank
+            print(f"launch_server_from_verl_engine {new_server_args.port}")
+
+            def server_thread_wrapper(
+                tokenizer_manager, scheduler_info, server_args, engine_lock, engine
+            ):
+                print(f"Server thread trying to acquire lock")
+                with engine_lock:
+                    print(f"Server thread acquired lock for initialization")
+
+                    launch_server_from_verl_engine(
+                        tokenizer_manager=tokenizer_manager,
+                        scheduler_info=scheduler_info,
+                        server_args=server_args,
+                    )
+                print(f"Server thread released lock after initialization")
+
+            server_thread = threading.Thread(
+                target=server_thread_wrapper,
+                args=(
+                    self._engine.tokenizer_manager,
+                    self._engine.scheduler_info,
+                    new_server_args,
+                    self._engine_lock,
+                    self._engine,
+                ),
+                daemon=True,
+            )
+            server_thread.start()
 
         dist.barrier(group=self._device_mesh_cpu.get_group())
 

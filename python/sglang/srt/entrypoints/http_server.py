@@ -687,6 +687,74 @@ def launch_server(
         warmup_thread.join()
 
 
+def launch_server_from_verl_engine(
+    tokenizer_manager: TokenizerManager,
+    scheduler_info: Dict,
+    server_args: ServerArgs,
+    pipe_finish_writer: Optional[multiprocessing.connection.Connection] = None,
+    launch_callback: Optional[Callable[[], None]] = None,
+):
+    """
+    Launch SRT (SGLang Runtime) Server.
+
+    The SRT server consists of an HTTP server and an SRT engine.
+
+    - HTTP server: A FastAPI server that routes requests to the engine.
+    - The engine consists of three components:
+        1. TokenizerManager: Tokenizes the requests and sends them to the scheduler.
+        2. Scheduler (subprocess): Receives requests from the Tokenizer Manager, schedules batches, forwards them, and sends the output tokens to the Detokenizer Manager.
+        3. DetokenizerManager (subprocess): Detokenizes the output tokens and sends the result back to the Tokenizer Manager.
+
+    Note:
+    1. The HTTP server, Engine, and TokenizerManager both run in the main process.
+    2. Inter-process communication is done through IPC (each process uses a different port) via the ZMQ library.
+    """
+    set_global_state(
+        _GlobalState(
+            tokenizer_manager=tokenizer_manager,
+            scheduler_info=scheduler_info,
+        )
+    )
+
+    # Add api key authorization
+    if server_args.api_key:
+        add_api_key_middleware(app, server_args.api_key)
+
+    # Add prometheus middleware
+    if server_args.enable_metrics:
+        add_prometheus_middleware(app)
+        enable_func_timer()
+
+    # Send a warmup request - we will create the thread launch it
+    # in the lifespan after all other warmups have fired.
+    warmup_thread = threading.Thread(
+        target=_wait_and_warmup,
+        args=(
+            server_args,
+            pipe_finish_writer,
+            _global_state.tokenizer_manager.image_token_id,
+            launch_callback,
+        ),
+    )
+    app.warmup_thread = warmup_thread
+
+    try:
+        # Update logging configs
+        set_uvicorn_logging_configs()
+        app.server_args = server_args
+        # Listen for HTTP requests
+        uvicorn.run(
+            app,
+            host=server_args.host,
+            port=server_args.port,
+            log_level=server_args.log_level_http or server_args.log_level,
+            timeout_keep_alive=5,
+            loop="uvloop",
+        )
+    finally:
+        warmup_thread.join()
+
+
 def _wait_and_warmup(
     server_args: ServerArgs,
     pipe_finish_writer: Optional[multiprocessing.connection.Connection],
