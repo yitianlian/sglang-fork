@@ -42,11 +42,6 @@ _ENABLE_UPDATE_WEIGHTS = True
 CI_MODELS = ALL_OTHER_MODELS = [
     dict(model_path="meta-llama/Llama-3.2-1B-Instruct"),
 ]
-CI_MODELS = ALL_OTHER_MODELS = [
-    dict(
-        model_path="/cpfs01/shared/llm_ddd/puyu_transfer_data/guohonglin/hf_hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/e9f8effbab1cbdc515c11ee6e098e3d5a9f51e14"
-    ),
-]
 
 
 class TestVerlEngine(unittest.TestCase):
@@ -188,14 +183,7 @@ def _run_subprocess(
                 f"subprocess[{tp_rank=}] call update_weights_from_tensor done",
                 flush=True,
             )
-        print(f"subprocess[{tp_rank=}] call start_server", flush=True)
-        engine.start_server()
-        print(f"subprocess[{tp_rank=}] call start_server done", flush=True)
-        time.sleep(60)
-        print(f"subprocess[{tp_rank=}] call stop_server", flush=True)
-        engine.stop_server()
-        print(f"subprocess[{tp_rank=}] call stop_server done", flush=True)
-        time.sleep(60)
+
         for enable_batch in [False, True]:
             if enable_batch:
                 fn = SRTRunner.batch_forward_generation_raw
