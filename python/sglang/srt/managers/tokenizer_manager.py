@@ -722,9 +722,10 @@ class TokenizerManager:
 
         # This means that weight sync
         # cannot run while requests are in progress.
-        print("tokenizer manager update begin")
+        print("tokenizer manager begin update weight")
         async with self.model_update_lock.writer_lock:
             result = (await self.update_weights_from_tensor_communicator(obj))[0]
+            print("tokenizer manager udpate down")
             return result.success, result.message
 
     async def get_weights_by_name(
@@ -889,9 +890,17 @@ class TokenizerManager:
         """The event loop that handles requests"""
 
         while True:
-            recv_obj = await self.recv_from_detokenizer.recv_pyobj()
-            self._result_dispatcher(recv_obj)
-            self.last_receive_tstamp = time.time()
+            try:
+                print(f"handle loop waiting for recv from detokenizer")
+                recv_obj = await self.recv_from_detokenizer.recv_pyobj()
+                print(
+                    f"handle loop recv from detokenizer done, type recv_obj: {type(recv_obj)}"
+                )
+                self._result_dispatcher(recv_obj)
+                self.last_receive_tstamp = time.time()
+            except Exception as e:
+                print(f"handle loop recv from detokenizer error: {e}")
+                continue
 
     def _handle_batch_output(
         self,
@@ -1175,10 +1184,13 @@ class _Communicator(Generic[T]):
             assert self._result_values is None
 
         if obj:
+            print(f"Attempting to send data: {obj}")
             self._sender.send_pyobj(obj)
+            print("Data sent successfully!")
 
         self._result_event = asyncio.Event()
         self._result_values = []
+        print(f"Waiting for result event: {self._result_event}")
         await self._result_event.wait()
         result_values = self._result_values
         self._result_event = self._result_values = None
@@ -1190,5 +1202,9 @@ class _Communicator(Generic[T]):
 
     def handle_recv(self, recv_obj: T):
         self._result_values.append(recv_obj)
+        print(
+            f"Received: {recv_obj}, current count: {len(self._result_values)}/{self._fan_out}"
+        )
         if len(self._result_values) == self._fan_out:
+            print("All expected responses received, setting event")
             self._result_event.set()

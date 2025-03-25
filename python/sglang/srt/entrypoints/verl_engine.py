@@ -47,40 +47,33 @@ class VerlEngine:
         else:
             self._engine = None
 
-        self._engine_lock = threading.RLock()
-        if self._tp_rank == 0:
-            import copy
+        # if self._tp_rank == 0:
+        #     import copy
 
-            new_server_args = copy.deepcopy(self._engine.server_args)
-            new_server_args.port = 30000 + self._tp_rank
-            print(f"launch_server_from_verl_engine {new_server_args.port}")
+        #     new_server_args = copy.deepcopy(self._engine.server_args)
+        #     new_server_args.port = 30000 + self._tp_rank
+        #     print(f"launch_server_from_verl_engine {new_server_args.port}")
 
-            def server_thread_wrapper(
-                tokenizer_manager, scheduler_info, server_args, engine_lock, engine
-            ):
-                print(f"Server thread trying to acquire lock")
-                with engine_lock:
-                    print(f"Server thread acquired lock for initialization")
+        #     def server_thread_wrapper(
+        #         tokenizer_manager, scheduler_info, server_args
+        #     ):
+        #         print(f"Server thread begin")
+        #         launch_server_from_verl_engine(
+        #             tokenizer_manager=tokenizer_manager,
+        #             scheduler_info=scheduler_info,
+        #             server_args=server_args,
+        #         )
 
-                    launch_server_from_verl_engine(
-                        tokenizer_manager=tokenizer_manager,
-                        scheduler_info=scheduler_info,
-                        server_args=server_args,
-                    )
-                print(f"Server thread released lock after initialization")
-
-            server_thread = threading.Thread(
-                target=server_thread_wrapper,
-                args=(
-                    self._engine.tokenizer_manager,
-                    self._engine.scheduler_info,
-                    new_server_args,
-                    self._engine_lock,
-                    self._engine,
-                ),
-                daemon=True,
-            )
-            server_thread.start()
+        #     server_thread = threading.Thread(
+        #         target=server_thread_wrapper,
+        #         args=(
+        #             self._engine.tokenizer_manager,
+        #             self._engine.scheduler_info,
+        #             new_server_args,
+        #         ),
+        #         daemon=True,
+        #     )
+        #     server_thread.start()
 
         dist.barrier(group=self._device_mesh_cpu.get_group())
 
@@ -154,6 +147,7 @@ class VerlEngine:
             )
 
             if self._tp_rank == 0:
+                print("verl engine update weights from tensor")
                 self._engine.update_weights_from_tensor(
                     named_tensors=[
                         (
@@ -164,6 +158,7 @@ class VerlEngine:
                     load_format=load_format,
                     flush_cache=tensor_index == len(named_tensors) - 1,
                 )
+                print("update one tensor in VerlEngine")
 
     def release_memory_occupation(self):
         if self._tp_rank == 0:

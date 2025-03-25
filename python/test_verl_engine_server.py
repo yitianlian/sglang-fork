@@ -40,7 +40,7 @@ _ENABLE_UPDATE_WEIGHTS = True
 
 
 CI_MODELS = ALL_OTHER_MODELS = [
-    dict(model_path="meta-llama/Llama-3.2-1B-Instruct"),
+    dict(model_path="Qwen/Qwen2-1.5B"),
 ]
 
 
@@ -172,16 +172,11 @@ def _run_subprocess(
             device_mesh_cpu=inference_device_mesh_cpu["tp"],
         )
         print(f"subprocess[{tp_rank=}] {engine=}", flush=True)
-        time.sleep(10)
 
         if _ENABLE_UPDATE_WEIGHTS:
             print(f"subprocess[{tp_rank=}] call update_weights_from_tensor", flush=True)
             engine.update_weights_from_tensor(
                 [(k, v) for k, v in fsdp_state_dict.items()]
-            )
-            print(
-                f"subprocess[{tp_rank=}] call update_weights_from_tensor done",
-                flush=True,
             )
 
         for enable_batch in [False, True]:
