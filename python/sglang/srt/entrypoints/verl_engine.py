@@ -47,33 +47,31 @@ class VerlEngine:
         else:
             self._engine = None
 
-        # if self._tp_rank == 0:
-        #     import copy
+        if self._tp_rank == 0:
+            import copy
 
-        #     new_server_args = copy.deepcopy(self._engine.server_args)
-        #     new_server_args.port = 30000 + self._tp_rank
-        #     print(f"launch_server_from_verl_engine {new_server_args.port}")
+            new_server_args = copy.deepcopy(self._engine.server_args)
+            new_server_args.port = 30000 + self._tp_rank
+            print(f"launch_server_from_verl_engine {new_server_args.port}")
 
-        #     def server_thread_wrapper(
-        #         tokenizer_manager, scheduler_info, server_args
-        #     ):
-        #         print(f"Server thread begin")
-        #         launch_server_from_verl_engine(
-        #             tokenizer_manager=tokenizer_manager,
-        #             scheduler_info=scheduler_info,
-        #             server_args=server_args,
-        #         )
+            def server_thread_wrapper(tokenizer_manager, scheduler_info, server_args):
+                print(f"Server thread begin")
+                launch_server_from_verl_engine(
+                    tokenizer_manager=tokenizer_manager,
+                    scheduler_info=scheduler_info,
+                    server_args=server_args,
+                )
 
-        #     server_thread = threading.Thread(
-        #         target=server_thread_wrapper,
-        #         args=(
-        #             self._engine.tokenizer_manager,
-        #             self._engine.scheduler_info,
-        #             new_server_args,
-        #         ),
-        #         daemon=True,
-        #     )
-        #     server_thread.start()
+            server_thread = threading.Thread(
+                target=server_thread_wrapper,
+                args=(
+                    self._engine.tokenizer_manager,
+                    self._engine.scheduler_info,
+                    new_server_args,
+                ),
+                daemon=True,
+            )
+            server_thread.start()
 
         dist.barrier(group=self._device_mesh_cpu.get_group())
 
