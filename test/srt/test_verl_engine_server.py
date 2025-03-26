@@ -40,7 +40,7 @@ _ENABLE_UPDATE_WEIGHTS = True
 
 
 CI_MODELS = ALL_OTHER_MODELS = [
-    dict(model_path="/data3/public_checkpoints/huggingface_models/Qwen2-1.5B-Instruct"),
+    dict(model_path="Qwen/Qwen2-1.5B"),
 ]
 
 
@@ -170,6 +170,7 @@ def _run_subprocess(
             trust_remote_code=True,
             dtype=get_dtype_str(_TORCH_DTYPE),
             device_mesh_cpu=inference_device_mesh_cpu["tp"],
+            launch_server=True,
         )
         print(f"subprocess[{tp_rank=}] {engine=}", flush=True)
 
@@ -191,22 +192,13 @@ def _run_subprocess(
                 lora_paths=None,
                 engine=engine,
             )
-            try:
-                from openai import OpenAI
+            # try:
+            #     from openai import OpenAI
+            #     client = OpenAI(api_key="None", base_url="http://localhost:2157/v1")
+            #     print(f"subprocess[{tp_rank=}] {client.models.list().data[0].id}")
 
-                client = OpenAI(base_url="http://localhost:30000/v1", api_key="")
-                oai_outputs = []
-                for prompt in _PROMPTS:
-                    response = client.chat.completions.create(
-                        model=client.models.list().data[0].id,
-                        messages=[{"role": "user", "content": prompt}],
-                        max_tokens=_MAX_NEW_TOKENS,
-                    )
-                    oai_outputs.append(response.choices[0].message.content)
-                print(f"oai_outputs: {oai_outputs}")
-
-            except Exception as e:
-                print(f"subprocess[{tp_rank=}] OpenAI API call failed: {e}", flush=True)
+            # except Exception as e:
+            #     print(f"subprocess[{tp_rank=}] OpenAI API call failed: {e}", flush=True)
 
             print(
                 f"subprocess[{tp_rank=}] call srt.forward {enable_batch=} {srt_outputs=}",
