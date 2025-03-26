@@ -38,7 +38,8 @@ class VerlEngine:
         tp_size_per_node = self._tp_size // nnodes
         node_rank = self._tp_rank // tp_size_per_node
         first_rank_in_node = self._tp_rank % tp_size_per_node == 0
-
+        launch_server = "launch_server" in kwargs and kwargs["launch_server"]
+        del kwargs["launch_server"]
         if first_rank_in_node:
             os.environ["SGLANG_BLOCK_NONZERO_RANK_CHILDREN"] = "0"
             self._engine = Engine(
@@ -47,11 +48,11 @@ class VerlEngine:
         else:
             self._engine = None
 
-        if self._tp_rank == 0:
+        if launch_server and self._tp_rank == 0:
             import copy
 
             new_server_args = copy.deepcopy(self._engine.server_args)
-            new_server_args.port = 30000 + self._tp_rank
+            new_server_args.port = 2157 + self._tp_rank
             print(f"launch_server_from_verl_engine {new_server_args.port}")
 
             def server_thread_wrapper(tokenizer_manager, scheduler_info, server_args):
