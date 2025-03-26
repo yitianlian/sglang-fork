@@ -145,7 +145,6 @@ class VerlEngine:
             )
 
             if self._tp_rank == 0:
-                print("verl engine update weights from tensor")
                 self._engine.update_weights_from_tensor(
                     named_tensors=[
                         (
@@ -156,7 +155,6 @@ class VerlEngine:
                     load_format=load_format,
                     flush_cache=tensor_index == len(named_tensors) - 1,
                 )
-                print("update one tensor in VerlEngine")
 
     def release_memory_occupation(self):
         if self._tp_rank == 0:

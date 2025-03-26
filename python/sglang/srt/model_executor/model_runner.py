@@ -594,14 +594,12 @@ class ModelRunner:
             (name, _unwrap_tensor(tensor, tp_rank=self.tp_rank))
             for name, tensor in named_tensors
         ]
-        print(f"model runner get tensor and begin to update on tp rank:{self.tp_rank}")
         if load_format == "direct":
             _model_load_weights_direct(self.model, named_tensors)
         elif load_format is None:
             self.model.load_weights(named_tensors)
         else:
             raise NotImplementedError(f"Unknown load_format={load_format}")
-        print(f"model runner update done on tp rank:{self.tp_rank}")
         return True, "Success"
 
     def get_weights_by_name(

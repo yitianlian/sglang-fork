@@ -768,22 +768,13 @@ class Scheduler(
             ):
                 self.return_health_check_ct += 1
                 continue
-            print(f"scheduler process input requests on tp rank {self.tp_rank}")
             output = self._request_dispatcher(recv_req)
-            print(f"scheduler process input requests done on tp rank {self.tp_rank}")
-            print(f"Scheduler output: {output}, type: {type(output)}")
-            print(f"recv from rpc: {self.recv_from_rpc}, tp rank: {self.tp_rank}")
             if output is not None:
                 if isinstance(output, RpcReqOutput):
-                    print(f"send to rpc on tp rank {self.tp_rank}")
                     if self.recv_from_rpc is not None:
                         self.recv_from_rpc.send_pyobj(output)
                 else:
-                    print(
-                        f"send to tokenizer on tp rank {self.tp_rank}, output: {output}, type: {type(output)}"
-                    )
                     self.send_to_tokenizer.send_pyobj(output)
-                    print(f"send to tokenizer done on tp rank {self.tp_rank}")
 
     def handle_generate_request(
         self,
@@ -1778,7 +1769,6 @@ class Scheduler(
 
     def update_weights_from_tensor(self, recv_req: UpdateWeightsFromTensorReqInput):
         """Update the online model parameter from tensors."""
-        print(f"scheduler beging run update weight on tp rank {self.tp_rank}")
         success, message = self.tp_worker.update_weights_from_tensor(recv_req)
         # TODO extract common code b/t update_weights_from_distributed and update_weights_from_tensor later
         if success:
@@ -1787,7 +1777,6 @@ class Scheduler(
                 assert flash_cache_success, "Cache flush failed after updating weights"
         else:
             logger.error(message)
-        print(f"scheduler update done on tp rank {self.tp_rank}")
         return UpdateWeightsFromTensorReqOutput(success, message)
 
     def get_weights_by_name(self, recv_req: GetWeightsByNameReqInput):

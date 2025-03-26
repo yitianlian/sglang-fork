@@ -39,10 +39,12 @@ _ENABLE_UPDATE_WEIGHTS = True
 # _ENABLE_UPDATE_WEIGHTS = False
 
 
+# CI_MODELS = ALL_OTHER_MODELS = [
+#     dict(model_path="Qwen/Qwen2-1.5B"),
+# ]
 CI_MODELS = ALL_OTHER_MODELS = [
-    dict(model_path="Qwen/Qwen2-1.5B"),
+    dict(model_path="/data3/public_checkpoints/huggingface_models/Qwen2.5-1.5B"),
 ]
-
 
 class TestVerlEngine(unittest.TestCase):
     @classmethod
