@@ -565,6 +565,7 @@ class Req(ReqDllmMixin):
         sampling_params: SamplingParams,
         return_logprob: bool = False,
         top_logprobs_num: int = 0,
+        top_logprobs_p: float = 0.0,
         dllm_config: Optional[DllmConfig] = None,
         token_ids_logprob: List[int] = None,
         stream: bool = False,
@@ -744,6 +745,7 @@ class Req(ReqDllmMixin):
         # Start index to compute logprob from.
         self.logprob_start_len = 0
         self.top_logprobs_num = top_logprobs_num
+        self.top_logprobs_p = top_logprobs_p
         self.token_ids_logprob = token_ids_logprob
         self.temp_scaled_logprobs = False
         self.top_p_normalized_logprobs = False
@@ -755,12 +757,16 @@ class Req(ReqDllmMixin):
         self.input_token_logprobs_idx: Optional[List[int]] = None
         self.input_top_logprobs_val: Optional[List[float]] = None
         self.input_top_logprobs_idx: Optional[List[int]] = None
+        self.input_top_p_logprobs_val: Optional[List] = None
+        self.input_top_p_logprobs_idx: Optional[List] = None
         self.input_token_ids_logprobs_val: Optional[List[float]] = None
         self.input_token_ids_logprobs_idx: Optional[List[int]] = None
         # Temporary holder to store input_token_logprobs.
         self.input_token_logprobs: Optional[List[Tuple[int]]] = None
         self.temp_input_top_logprobs_val: Optional[List[torch.Tensor]] = None
         self.temp_input_top_logprobs_idx: Optional[List[int]] = None
+        self.temp_input_top_p_logprobs_val: Optional[List] = None
+        self.temp_input_top_p_logprobs_idx: Optional[List] = None
         self.temp_input_token_ids_logprobs_val: Optional[List[float]] = None
         self.temp_input_token_ids_logprobs_idx: Optional[List[int]] = None
 
@@ -771,6 +777,9 @@ class Req(ReqDllmMixin):
             # shape: (bs, k)
             self.output_top_logprobs_val = []
             self.output_top_logprobs_idx = []
+            # shape: (bs, variable) for top-p logprobs
+            self.output_top_p_logprobs_val = []
+            self.output_top_p_logprobs_idx = []
             # Can contain either lists or GPU tensors (delayed copy optimization for prefill-only scoring)
             self.output_token_ids_logprobs_val: List[
                 Union[List[float], torch.Tensor]
@@ -779,7 +788,9 @@ class Req(ReqDllmMixin):
         else:
             self.output_token_logprobs_val = self.output_token_logprobs_idx = (
                 self.output_top_logprobs_val
-            ) = self.output_top_logprobs_idx = self.output_token_ids_logprobs_val = (
+            ) = self.output_top_logprobs_idx = self.output_top_p_logprobs_val = (
+                self.output_top_p_logprobs_idx
+            ) = self.output_token_ids_logprobs_val = (
                 self.output_token_ids_logprobs_idx
             ) = None
         self.hidden_states: List[List[float]] = []
@@ -1199,6 +1210,8 @@ class Req(ReqDllmMixin):
         self.input_token_logprobs = None
         self.temp_input_top_logprobs_val = None
         self.temp_input_top_logprobs_idx = None
+        self.temp_input_top_p_logprobs_val = None
+        self.temp_input_top_p_logprobs_idx = None
         self.extend_logprob_start_len = 0
         self.is_chunked = 0
         self.mamba_pool_idx = None
@@ -1367,6 +1380,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
     # For processing logprobs
     return_logprob: bool = False
     top_logprobs_nums: Optional[List[int]] = None
+    top_logprobs_ps: Optional[List[float]] = None
     token_ids_logprobs: Optional[List[List[int]]] = None
 
     # For logits and logprob post processing
@@ -1754,6 +1768,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
         if self.return_logprob:
             self.top_logprobs_nums = [r.top_logprobs_num for r in reqs]
+            self.top_logprobs_ps = [r.top_logprobs_p for r in reqs]
             self.token_ids_logprobs = [r.token_ids_logprob for r in reqs]
 
         self.extend_logprob_start_lens = [r.extend_logprob_start_len for r in reqs]
@@ -2242,9 +2257,11 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         self.return_logprob = any(req.return_logprob for req in self.reqs)
         if self.return_logprob:
             self.top_logprobs_nums = [self.top_logprobs_nums[i] for i in keep_indices]
+            self.top_logprobs_ps = [self.top_logprobs_ps[i] for i in keep_indices]
             self.token_ids_logprobs = [self.token_ids_logprobs[i] for i in keep_indices]
         else:
             self.top_logprobs_nums = None
+            self.top_logprobs_ps = None
             self.token_ids_logprobs = None
 
         self.has_stream = any(req.stream for req in self.reqs)
@@ -2296,12 +2313,15 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         self.mamba_track_seqlens = None
         if self.return_logprob and other.return_logprob:
             self.top_logprobs_nums.extend(other.top_logprobs_nums)
+            self.top_logprobs_ps.extend(other.top_logprobs_ps)
             self.token_ids_logprobs.extend(other.token_ids_logprobs)
         elif self.return_logprob:
             self.top_logprobs_nums.extend([0] * len(other.reqs))
+            self.top_logprobs_ps.extend([0.0] * len(other.reqs))
             self.token_ids_logprobs.extend([None] * len(other.reqs))
         elif other.return_logprob:
             self.top_logprobs_nums = [0] * len(self.reqs) + other.top_logprobs_nums
+            self.top_logprobs_ps = [0.0] * len(self.reqs) + other.top_logprobs_ps
             self.token_ids_logprobs = [None] * len(self.reqs) + other.token_ids_logprobs
         self.reqs.extend(other.reqs)
         if self.multimodal_inputs is not None:
@@ -2347,6 +2367,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             seq_lens_sum=self.seq_lens_sum,
             return_logprob=self.return_logprob,
             top_logprobs_nums=self.top_logprobs_nums,
+            top_logprobs_ps=self.top_logprobs_ps,
             token_ids_logprobs=self.token_ids_logprobs,
             global_num_tokens=self.global_num_tokens,
             global_num_tokens_for_logprob=self.global_num_tokens_for_logprob,
@@ -2504,6 +2525,7 @@ class ModelWorkerBatch:
     # For logprob
     return_logprob: bool
     top_logprobs_nums: Optional[List[int]]
+    top_logprobs_ps: Optional[List[float]]
     token_ids_logprobs: Optional[List[List[int]]]
 
     # For DP attention

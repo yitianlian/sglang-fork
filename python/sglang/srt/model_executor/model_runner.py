@@ -2909,6 +2909,7 @@ class ModelRunner(ModelRunnerKVCacheMixin):
             forward_batch.sampling_info,
             forward_batch.return_logprob,
             forward_batch.top_logprobs_nums,
+            forward_batch.top_logprobs_ps,
             forward_batch.token_ids_logprobs,
             # For prefill, we only use the position of the last token.
             (
