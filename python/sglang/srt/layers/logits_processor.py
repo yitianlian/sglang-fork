@@ -408,6 +408,8 @@ class LogitsProcessor(nn.Module):
             input_token_logprobs=logprobs_result.input_token_logprobs,
             input_top_logprobs_val=logprobs_result.input_top_logprobs_val,
             input_top_logprobs_idx=logprobs_result.input_top_logprobs_idx,
+            input_top_p_logprobs_val=logprobs_result.input_top_p_logprobs_val,
+            input_top_p_logprobs_idx=logprobs_result.input_top_p_logprobs_idx,
             input_token_ids_logprobs_val=logprobs_result.input_token_ids_logprobs_val,
             input_token_ids_logprobs_idx=logprobs_result.input_token_ids_logprobs_idx,
             mm_input_embeds=logits_metadata.mm_input_embeds,

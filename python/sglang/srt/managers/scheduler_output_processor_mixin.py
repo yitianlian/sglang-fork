@@ -484,6 +484,14 @@ class SchedulerOutputProcessorMixin:
                         req.output_top_logprobs_idx.append(
                             logits_output.next_token_top_logprobs_idx[flat_idx]
                         )
+                    if req.top_logprobs_p > 0.0 and logits_output.next_token_top_p_logprobs_val is not None:
+                        flat_idx = i * max_accept + j
+                        req.output_top_p_logprobs_val.append(
+                            logits_output.next_token_top_p_logprobs_val[flat_idx]
+                        )
+                        req.output_top_p_logprobs_idx.append(
+                            logits_output.next_token_top_p_logprobs_idx[flat_idx]
+                        )
                     if req.token_ids_logprob is not None:
                         flat_idx = i * max_accept + j
                         req.output_token_ids_logprobs_val.append(
