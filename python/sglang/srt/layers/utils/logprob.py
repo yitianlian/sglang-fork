@@ -122,12 +122,9 @@ def get_top_p_logprobs_raw(
     Returns:
         Tuple of (values_list, indices_list) where each element is variable-length
     """
-    # Convert logprobs to probabilities for cumsum
-    probs = logprobs.exp()
-
-    # Sort by probability descending
-    sorted_probs, sorted_indices = probs.sort(dim=-1, descending=True)
-    sorted_logprobs = sorted_probs.log()
+    # Sort by log probability descending directly
+    sorted_logprobs, sorted_indices = logprobs.sort(dim=-1, descending=True)
+    sorted_probs = sorted_logprobs.exp()
 
     # Compute cumulative probabilities
     cumsum_probs = torch.cumsum(sorted_probs, dim=-1)
@@ -230,11 +227,13 @@ def get_top_p_logprobs_prefill(
 def get_top_p_logprobs(
     logprobs: torch.Tensor,
     top_logprobs_ps: List[float],
+    no_copy_to_cpu: bool = False,
 ):
     return get_top_p_logprobs_raw(
         logprobs,
         top_logprobs_ps,
         stage=LogprobStage.DECODE,
+        no_copy_to_cpu=no_copy_to_cpu,
     )
 
 
